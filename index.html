@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tattoo Wheel</title>
+  <style>
+    :root {
+      --bg-main: #050505;
+      --ink-main: #f5f5f5;
+      --ink-muted: #a5a5a5;
+      --border-strong: #f5f5f5;
+      --border-soft: #444;
+      --card-bg: #111;
+      --card-shadow: #000;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #333 0, #000 55%, #000 100%);
+      color: var(--ink-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page {
+      flex: 1;
+      display: none;
+      padding: 16px;
+      padding-bottom: 72px;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    h2 {
+      font-size: 22px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--ink-muted);
+      padding-bottom: 6px;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .subtitle .note-inline {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--ink-muted);
+    }
+
+    /* ================= LOADER ================= */
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+
+    #loader img {
+      width: 80%;
+      max-width: 380px;
+      height: auto;
+      animation: loaderPulse 1.4s ease-in-out infinite;
+      filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.25));
+    }
+
+    #loader-text {
+      margin-top: 18px;
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-weight: 600;
+    }
+
+    #loader-text .dot {
+      display: inline-block;
+      font-size: 18px;
+      margin-left: 2px;
+      opacity: 0;
+      animation: dotBlink 1.3s infinite;
+    }
+
+    #loader-text .dot:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+    #loader-text .dot:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+    #loader-text .dot:nth-child(4) {
+      animation-delay: 0.45s;
+    }
+
+    @keyframes loaderPulse {
+      0% {
+        transform: scale(0.96);
+        opacity: 0.8;
+      }
+      50% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(0.96);
+        opacity: 0.8;
+      }
+    }
+
+    @keyframes dotBlink {
+      0%, 20% {
+        opacity: 0;
+      }
+      40%, 60% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* =============== НИЖНЕЕ МЕНЮ и ОСНОВА =============== */
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      border-top: 1px solid var(--border-soft);
+      background: #050505;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.8);
+      z-index: 10;
+    }
+
+    .bottom-nav button {
+      flex: 1;
+      padding: 10px 8px;
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      position: relative;
+    }
+
+    .bottom-nav button span {
+      display: inline-block;
+      padding-bottom: 4px;
+    }
+
+    .bottom-nav button.active span {
+      border-bottom: 2px solid var(--ink-main);
+      color: var(--ink-main);
+    }
+
+    .bottom-nav button:active span {
+      transform: translateY(1px);
+    }
+
+    /* ЭКРАН PLAY */
+
+    .wheel-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-top: 12px;
+      position: relative;
+    }
+
+    .pointer-top {
+      display: flex;
+      justify-content: center;
+      margin-bottom: -28px; /* чуть сильнее опускаем, т.к. машинка больше */
+      z-index: 3;
+    }
+
+    /* ТАТУ-МАШИНКА-УКАЗАТЕЛЬ (без круга) */
+    .tattoo-icon {
+      width: 90px;
+      height: 90px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .tattoo-icon img {
+      width: 90px;         /* было ~60, сделали в 1.5 раза больше */
+      height: auto;
+      display: block;
+      transform: rotate(-45deg); /* игла вниз */
+      filter: drop-shadow(0 4px 4px rgba(0,0,0,0.8));
+      position: relative;
+      top: 8px;            /* кончик иглы заходит на колесо */
+    }
+
+    .wheel-frame {
+      padding: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--border-strong);
+      background: radial-gradient(circle at center, #444 0, #111 60%, #000 100%);
+      box-shadow:
+        0 0 0 2px #000,
+        0 10px 18px rgba(0, 0, 0, 0.9);
+    }
+
+    .wheel {
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      border: 3px solid var(--border-strong);
+      position: relative;
+      overflow: hidden;
+      transition: transform 9s cubic-bezier(0.19, 1, 0.22, 1);
+      background: conic-gradient(
+        from 0deg,
+        #444 0deg 40deg,
+        #222 40deg 80deg,
+        #555 80deg 120deg,
+        #1b1b1b 120deg 160deg,
+        #3a3a3a 160deg 200deg,
+        #111 200deg 240deg,
+        #4a4a4a 240deg 280deg,
+        #222 280deg 320deg,
+        #555 320deg 360deg
+      );
+    }
+
+    /* Текст в ячейках по кругу (центр каждого сектора, не вылезает) */
+    .sector-label {
+      position: absolute;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(0, 0, 0, 0.45);
+      font-size: 8px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #f5f5f5;
+      text-shadow: 0 1px 2px #000;
+      max-width: 60px;
+      text-align: center;
+      line-height: 1.1;
+      word-wrap: break-word;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    button.spin {
+      margin-top: 10px;
+      padding: 10px 28px;
+      font-size: 16px;
+      border-radius: 999px;
+      border: 2px solid var(--border-strong);
+      background: #f5f5f5;
+      color: #000;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow:
+        0 4px 0 #999,
+        0 6px 12px rgba(0, 0, 0, 0.8);
+      cursor: pointer;
+    }
+
+    button.spin:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow:
+        0 2px 0 #999,
+        0 4px 8px rgba(0, 0, 0, 0.7);
+    }
+
+    button.spin:disabled {
+      background: #333;
+      color: #777;
+      box-shadow:
+        0 4px 0 #111,
+        0 6px 10px rgba(0, 0, 0, 0.8);
+      cursor: not-allowed;
+      opacity: 0.9;
+    }
+
+    #spinInfo {
+      margin-top: 10px;
+      font-size: 13px;
+      text-align: center;
+      min-height: 18px;
+      color: var(--ink-muted);
+    }
+
+    #spinInfo.highlight {
+      font-size: 14px;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    /* ЭКРАН ME */
+
+    .profile-header {
+      margin-top: 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--ink-muted);
+      text-align: center;
+    }
+
+    .prizes-section-title {
+      margin-top: 18px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    #prizesList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .prize-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--card-bg);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.8);
+    }
+
+    .prize-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: #000;
+      color: #f5f5f5;
+    }
+
+    .prize-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .prize-name {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .prize-count {
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+    }
+
+    .prize-tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      color: var(--ink-muted);
+    }
+
+    .empty-state {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--ink-muted);
+      text-align: center;
+    }
+
+    .empty-state span {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING SCREEN -->
+  <div id="loader">
+    <img src="loading-screen.png" alt="Loading">
+    <div id="loader-text">
+      ЗАГРУЗКА
+      <span class="dot">•</span>
+      <span class="dot">•</span>
+      <span class="dot">•</span>
+      <span class="dot">•</span>
+    </div>
+  </div>
+
+  <!-- Экран Play -->
+  <div id="page-play" class="page active">
+    <h2>Колесо фортуны</h2>
+    <div class="subtitle">
+      Один спин каждые 24 часа
+      <span class="note-inline">(Скидки не суммируются)</span>
+    </div>
+
+    <div class="wheel-container">
+      <div class="pointer-top">
+        <!-- тату машинка, без круга -->
+        <div class="tattoo-icon">
+          <img src="tattoo-machine.png" alt="Tattoo machine" />
+        </div>
+      </div>
+
+      <div class="wheel-frame">
+        <div id="wheel" class="wheel"></div>
+      </div>
+
+      <button id="spinBtn" class="spin">Крутить</button>
+      <div id="spinInfo"></div>
+    </div>
+  </div>
+
+  <!-- Экран Me -->
+  <div id="page-me" class="page">
+    <h2>Мой профиль</h2>
+    <div class="subtitle">Твои тату-бонусы</div>
+
+    <div class="profile-header">
+      Всё, что ты выбил на колесе, хранится здесь
+    </div>
+
+    <div class="prizes-section-title">Мои призы</div>
+    <div id="prizesList"></div>
+  </div>
+
+  <!-- Нижнее меню -->
+  <div class="bottom-nav">
+    <button id="tab-play" class="active"><span>Play</span></button>
+    <button id="tab-me"><span>Me</span></button>
+  </div>
+
+  <!-- Скрипт скрытия лоадера -->
+  <script>
+    window.addEventListener("load", () => {
+      const loader = document.getElementById("loader");
+      // даём чуть показать экран загрузки, чтобы было красиво
+      setTimeout(() => {
+        loader.classList.add("hidden");
+        setTimeout(() => loader.remove(), 600);
+      }, 900);
+    });
+  </script>
+
+  <script src="app.js"></script>
+</body>
+</html>
